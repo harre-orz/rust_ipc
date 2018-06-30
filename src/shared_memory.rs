@@ -1,12 +1,12 @@
 use super::*;
+use ffi::*;
 
-use std::ffi::CStr;
 use std::io;
-
+use std::ffi::{CStr, CString};
 use libc;
 
 #[allow(non_camel_case_types)]
-pub trait ReadOnly_ReadWrite {
+trait ReadOnly_ReadWrite {
     const OFLAGS: i32;
 }
 
@@ -18,6 +18,7 @@ impl ReadOnly_ReadWrite for ReadWrite {
     const OFLAGS: i32 = libc::O_RDWR;
 }
 
+#[cfg(unix)]
 fn shm_open<T: ReadOnly_ReadWrite>(name: &CStr, _: &T) -> Result<FileHandle, ErrCode> {
     match unsafe { libc::shm_open(name.as_ptr(), T::OFLAGS, 0) } {
         -1 => Err(ErrCode::last_error().into()),
@@ -25,6 +26,7 @@ fn shm_open<T: ReadOnly_ReadWrite>(name: &CStr, _: &T) -> Result<FileHandle, Err
     }
 }
 
+#[cfg(unix)]
 fn shm_create<T: ReadOnly_ReadWrite>(name: &CStr, _: &T, perm: u32) -> Result<FileHandle, ErrCode> {
     match unsafe { libc::shm_open(name.as_ptr(), T::OFLAGS | libc::O_CREAT | libc::O_EXCL, perm) } {
         -1 => Err(ErrCode::last_error().into()),
@@ -33,6 +35,12 @@ fn shm_create<T: ReadOnly_ReadWrite>(name: &CStr, _: &T, perm: u32) -> Result<Fi
             Ok(handle)
         }
     }
+}
+
+pub struct SharedMemoryObject<Mode> {
+    handle: FileHandle,
+    name: CString,
+    mode: Mode,
 }
 
 impl<T: ReadOnly_ReadWrite> SharedMemoryObject<T> {
@@ -72,6 +80,20 @@ impl<T: ReadOnly_ReadWrite> SharedMemoryObject<T> {
             mode: mode,
             name: name.into()
         })?)
+    }
+
+    pub fn name(&self) -> &CString {
+        &self.name
+    }
+
+    pub fn mapping_handle(&self) -> FileHandle {
+        self.handle
+    }
+}
+
+impl<M> Drop for SharedMemoryObject<M> {
+    fn drop(&mut self) {
+        unsafe { libc::close(self.handle); }
     }
 }
 
