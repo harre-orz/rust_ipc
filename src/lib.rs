@@ -4,15 +4,14 @@ pub struct ReadOnly;
 
 pub struct ReadWrite;
 
-pub struct CopyOnWrite;
+mod err;
 
-pub struct ReadPrivate;
+mod ptr;
 
-mod ffi;
-pub use self::ffi::{Perm};
-
-mod shared_memory;
-pub use self::shared_memory::*;
+pub mod mem_algo;
 
 mod mapped_region;
 pub use self::mapped_region::*;
+
+// mod managed_mapped_file;
+// pub use self::managed_mapped_file::ManagedMappedFile;
